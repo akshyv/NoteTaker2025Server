@@ -1,35 +1,27 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from models.todo import Base, Todo
+from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import ConnectionFailure
 import os
+from dotenv import load_dotenv
 
-# Ensure the instance directory exists
-os.makedirs('instance', exist_ok=True)
+load_dotenv()
 
-# SQLite database configuration
-DATABASE_URL = "sqlite:///instance/todos.db"
+class DatabaseHelper:
+    client: AsyncIOMotorClient = None
+    db = None
 
-environment_engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(bind=environment_engine)
+    @classmethod
+    async def connect_db(cls):
+        try:
+            cls.client = AsyncIOMotorClient(os.getenv("MONGODB_URI"))
+            cls.db = cls.client.task_manager
+            await cls.client.admin.command('ping')
+            print("Connected to MongoDB!")
+        except ConnectionFailure:
+            print("Could not connect to MongoDB")
+            raise
 
-def init_db():
-    Base.metadata.create_all(environment_engine)
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-def add_todo(task):
-    db = next(get_db())
-    todo = Todo(task=task)
-    db.add(todo)
-    db.commit()
-    db.refresh(todo)
-    return todo
-
-def get_todos():
-    db = next(get_db())
-    return db.query(Todo).order_by(Todo.created_at.desc()).all()
+    @classmethod
+    async def close_db(cls):
+        if cls.client:
+            cls.client.close()
+            print("MongoDB connection closed")

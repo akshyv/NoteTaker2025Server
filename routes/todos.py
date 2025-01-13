@@ -1,19 +1,20 @@
-from flask import Blueprint, request, jsonify
-from utils.db_helper import add_todo, get_todos, init_db
+from flask import request, jsonify
+from models import db, Todo
+from services.todo_service import TodoService
+from . import todos_bp
 
-todos_bp = Blueprint('todos', __name__)
+todo_service = TodoService()
 
-@todos_bp.route('/todos', methods=['GET'])
-def get_all_todos():
-    todos = get_todos()
-    return jsonify([todo.to_dict() for todo in todos])
+@todos_bp.route('/api/todos', methods=['GET'])
+def get_todos():
+    return todo_service.get_all_todos()
 
-@todos_bp.route('/todos', methods=['POST'])
+@todos_bp.route('/api/todos', methods=['POST'])
 def create_todo():
-    data = request.get_json()
-    task = data.get('task')
-    if not task:
-        return jsonify({'error': 'Task is required'}), 400
+    data = request.json
+    return todo_service.create_todo(data)
 
-    todo = add_todo(task)
-    return jsonify(todo.to_dict()), 201
+@todos_bp.route('/api/todos/<int:todo_id>', methods=['PUT'])
+def update_todo(todo_id):
+    data = request.json
+    return todo_service.update_todo(todo_id, data)

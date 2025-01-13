@@ -1,25 +1,35 @@
 from flask import Flask
 from flask_cors import CORS
-from routes.todos import todos_bp
-from utils.db_helper import init_db
+from dotenv import load_dotenv
+from models import db
 import os
-import sys
+from routes import todos_bp
 
+load_dotenv()
 
-# Add the server directory to Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+def create_app():
+    app = Flask(__name__)
+    CORS(app)
 
-app = Flask(__name__)
-CORS(app)  # Enable CORS for all domains
+    # Create instance directory if it doesn't exist
+    instance_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
+    os.makedirs(instance_path, exist_ok=True)
 
-# SQLite database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/todos.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    # Configure database URI with absolute path
+    db_path = os.path.join(instance_path, 'todos.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-app.register_blueprint(todos_bp, url_prefix='/api')
+    db.init_app(app)
 
-# Initialize the database
-init_db()
+    with app.app_context():
+        db.create_all()
+
+    app.register_blueprint(todos_bp)
+
+    return app
+
+app = create_app()
 
 if __name__ == '__main__':
     app.run(debug=True)
